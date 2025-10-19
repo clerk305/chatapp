@@ -1,0 +1,90 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages       Message[]
+  privateChats1  PrivateChat[] @relation("ChatUser1")
+  privateChats2  PrivateChat[] @relation("ChatUser2")
+  groupMembers   GroupMember[]
+  groupsCreated  Group[]       @relation("GroupCreator")
+
+  @@index([name, email])
+}
+
+model Message {
+  id          String    @id @default(uuid())
+  content     String?   // Optional for media messages
+  type        MessageType @default(TEXT)
+  mediaUrl    String?   // URL for media files (images, videos, audio)
+  createdAt   DateTime  @default(now())
+  senderId    String
+  sender      User      @relation(fields: [senderId], references: [id])
+  groupId     String?
+  group       Group?    @relation(fields: [groupId], references: [id])
+  chatId      String?
+  chat        PrivateChat? @relation(fields: [chatId], references: [id])
+  replyToId   String?
+  replyTo     Message?  @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies     Message[] @relation("MessageReply")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+}
+
+model PrivateChat {
+  id         String   @id @default(uuid())
+  user1Id    String
+  user2Id    String
+  user1      User     @relation("ChatUser1", fields: [user1Id], references: [id])
+  user2      User     @relation("ChatUser2", fields: [user2Id], references: [id])
+  messages   Message[]
+  createdAt  DateTime @default(now())
+}
+
+model Group {
+  id         String   @id @default(uuid())
+  name       String
+  creatorId  String
+  creator    User    @relation("GroupCreator", fields: [creatorId], references: [id])
+  members    GroupMember[]
+  messages   Message[]
+  createdAt  DateTime @default(now())
+
+  @@index([name])
+}
+
+model GroupMember {
+  id         String   @id @default(uuid())
+  userId     String
+  groupId    String
+  isAdmin    Boolean  @default(false)
+  joinedAt   DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+  group      Group    @relation(fields: [groupId], references: [id])
+
+  @@unique([userId, groupId])
+}
